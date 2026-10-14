@@ -57,6 +57,7 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
     let pictures: TemporaryDirectory
     let applier = FakeDesktopApplier()
     let watcher = FakeWatcher()
+    let clock = TestClock()
     var displays: [Display] = [.main]
 
     init() throws {
@@ -70,10 +71,25 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
             watcher: watcher,
             applier: applier,
             displayProvider: FakeDisplayProvider(list: displays),
-            tileRenderer: FakeTileRenderer(output: support.url.appendingPathComponent("tile.png")))
+            tileRenderer: FakeTileRenderer(output: support.url.appendingPathComponent("tile.png")),
+            now: { [clock] in clock.date })
     }
 
     func makeController() -> AppController {
         AppController(environment: environment)
+    }
+}
+
+/// A clock tests move forward by hand.
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 1_800_000_000)
+
+    var date: Date {
+        lock.withLock { current }
+    }
+
+    func advance(by interval: TimeInterval) {
+        lock.withLock { current = current.addingTimeInterval(interval) }
     }
 }

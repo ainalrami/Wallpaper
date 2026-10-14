@@ -40,5 +40,11 @@ import WallpaperCore
         // macOS only changes the wallpaper of the active Space, so apply it when Spaces change.
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main, using: reapply))
+        // Timers don't fire during sleep, so check for a due change on wake.
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.controller.rotationTick() }
+        })
     }
 }

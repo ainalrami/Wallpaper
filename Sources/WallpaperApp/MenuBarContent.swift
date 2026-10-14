@@ -15,6 +15,25 @@ struct MenuBarContent: View {
                     wallpaper: controller.currentWallpaper(on: display))
             }
 
+            HStack {
+                Button {
+                    Task { await controller.nextWallpaper() }
+                } label: {
+                    Label("Next Wallpaper", systemImage: "forward.fill")
+                }
+                .disabled(controller.library.wallpapers.isEmpty)
+                Spacer()
+                if controller.settings.rotationSource != .off {
+                    Button {
+                        controller.settings.isRotationPaused.toggle()
+                    } label: {
+                        Label(controller.settings.isRotationPaused ? "Resume" : "Pause",
+                              systemImage: controller.settings.isRotationPaused ? "play.fill" : "pause.fill")
+                    }
+                }
+            }
+            rotationStatus
+
             if let message = controller.statusMessage {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .font(.caption)
@@ -31,6 +50,21 @@ struct MenuBarContent: View {
         }
         .padding(14)
         .frame(width: 300)
+    }
+
+    @ViewBuilder private var rotationStatus: some View {
+        let source = controller.settings.rotationSource
+        Group {
+            if source == .off {
+                Text("Automatic changes are off")
+            } else if controller.settings.isRotationPaused {
+                Text("\(source.title) is paused")
+            } else if let next = controller.nextRotationDate {
+                Text("\(source.title): next change \(Text(next, style: .relative)) from now")
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     /// One row in "same" mode, one per display otherwise.
