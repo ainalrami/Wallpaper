@@ -1,0 +1,7 @@
+#!/bin/sh
+# Block the commit unless the build and all tests pass.
+echo "pre-commit: running build and tests..."
+if ! "$(git rev-parse --show-toplevel)/scripts/test.sh"; then
+    echo "pre-commit: tests failed, commit aborted." >&2
+    exit 1
+fi
