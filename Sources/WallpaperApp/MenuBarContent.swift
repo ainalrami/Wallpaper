@@ -41,9 +41,20 @@ struct MenuBarContent: View {
             }
 
             if let message = controller.statusMessage {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                HStack(alignment: .top) {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        controller.statusMessage = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                    .help("Dismiss")
+                }
             }
 
             Divider()

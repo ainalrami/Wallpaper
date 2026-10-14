@@ -402,6 +402,7 @@ import Observation
                 setWallpaper(id: wallpaper.id, displayID: displayID)
             }
             rotationRetryDate = nil
+            statusMessage = nil
             setLastChange(environment.now(), for: .wallhaven)
             pruneWallhavenDownloads()
             startWatching()

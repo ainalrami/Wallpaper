@@ -233,6 +233,18 @@ import Testing
         #expect(controller.nextRotationDate == scheduled)
     }
 
+    @Test func successfulFetchClearsEarlierError() async throws {
+        serveFixture(searchStatus: 500)
+        let harness = try ControllerHarness()
+        let controller = makeWallhavenController(harness)
+        await controller.nextWallpaper()
+        #expect(controller.statusMessage != nil)
+
+        serveFixture()
+        await controller.nextWallpaper()
+        #expect(controller.statusMessage == nil)
+    }
+
     @Test func oldDownloadsArePrunedButKeptOnesStay() async throws {
         serveFixture()
         let harness = try ControllerHarness()
