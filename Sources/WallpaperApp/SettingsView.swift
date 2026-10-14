@@ -8,9 +8,10 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             RotationSettingsView()
                 .tabItem { Label("Cycling", systemImage: "arrow.triangle.2.circlepath") }
+            WallhavenSettingsView()
+                .tabItem { Label("Wallhaven", systemImage: "globe") }
         }
-        .frame(width: 520)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 580, height: 560)
     }
 }
 

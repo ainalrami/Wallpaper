@@ -33,6 +33,12 @@ struct MenuBarContent: View {
                 }
             }
             rotationStatus
+            if controller.isFetchingWallhaven {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Fetching from Wallhaven…").font(.caption)
+                }
+            }
 
             if let message = controller.statusMessage {
                 Label(message, systemImage: "exclamationmark.triangle")

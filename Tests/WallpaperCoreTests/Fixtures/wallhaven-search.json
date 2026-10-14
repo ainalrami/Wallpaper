@@ -1,0 +1,60 @@
+{
+  "data": [
+    {
+      "id": "abc123",
+      "url": "https://wallhaven.cc/w/abc123",
+      "short_url": "https://whvn.cc/abc123",
+      "views": 1200,
+      "favorites": 40,
+      "source": "",
+      "purity": "sfw",
+      "category": "general",
+      "dimension_x": 3840,
+      "dimension_y": 2160,
+      "resolution": "3840x2160",
+      "ratio": "1.78",
+      "file_size": 4120334,
+      "file_type": "image/jpeg",
+      "created_at": "2024-05-01 10:00:00",
+      "colors": ["#424153", "#999999"],
+      "path": "https://w.wallhaven.cc/full/ab/wallhaven-abc123.jpg",
+      "thumbs": {
+        "large": "https://th.wallhaven.cc/lg/ab/abc123.jpg",
+        "original": "https://th.wallhaven.cc/orig/ab/abc123.jpg",
+        "small": "https://th.wallhaven.cc/small/ab/abc123.jpg"
+      }
+    },
+    {
+      "id": "def456",
+      "url": "https://wallhaven.cc/w/def456",
+      "short_url": "https://whvn.cc/def456",
+      "views": 10,
+      "favorites": 1,
+      "source": "",
+      "purity": "sfw",
+      "category": "general",
+      "dimension_x": 2560,
+      "dimension_y": 1440,
+      "resolution": "2560x1440",
+      "ratio": "1.78",
+      "file_size": 1200000,
+      "file_type": "image/png",
+      "created_at": "2024-05-02 10:00:00",
+      "colors": [],
+      "path": "https://w.wallhaven.cc/full/de/wallhaven-def456.png",
+      "thumbs": {
+        "large": "https://th.wallhaven.cc/lg/de/def456.jpg",
+        "original": "https://th.wallhaven.cc/orig/de/def456.jpg",
+        "small": "https://th.wallhaven.cc/small/de/def456.jpg"
+      }
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "last_page": 1,
+    "per_page": 24,
+    "total": 2,
+    "query": { "id": 37, "tag": "mountains" },
+    "seed": "Xy12Ab"
+  }
+}

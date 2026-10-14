@@ -7,6 +7,8 @@ import Foundation
     public var applier: DesktopApplying
     public var displayProvider: DisplayProviding
     public var tileRenderer: TileRendering
+    public var httpSession: URLSession
+    public var secrets: SecretStoring
     public var now: @Sendable () -> Date
 
     public init(
@@ -15,6 +17,8 @@ import Foundation
         applier: DesktopApplying,
         displayProvider: DisplayProviding,
         tileRenderer: TileRendering,
+        httpSession: URLSession = .shared,
+        secrets: SecretStoring = KeychainSecretStore(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.paths = paths
@@ -22,6 +26,8 @@ import Foundation
         self.applier = applier
         self.displayProvider = displayProvider
         self.tileRenderer = tileRenderer
+        self.httpSession = httpSession
+        self.secrets = secrets
         self.now = now
     }
 

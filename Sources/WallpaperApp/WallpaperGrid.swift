@@ -99,6 +99,12 @@ struct WallpaperActions: View {
         Toggle("Include in Cycling", isOn: Binding(
             get: { wallpaper.includedInCycling },
             set: { controller.setIncludedInCycling($0, ids: [wallpaper.id]) }))
+        if case .wallhaven(let id) = wallpaper.origin {
+            Toggle("Keep", isOn: Binding(
+                get: { wallpaper.isKept },
+                set: { controller.setKept($0, ids: [wallpaper.id]) }))
+            Link("Open on Wallhaven", destination: WallhavenLinks.page(for: id))
+        }
         Divider()
         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([wallpaper.url]) }
     }

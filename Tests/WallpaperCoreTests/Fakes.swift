@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 @testable import WallpaperCore
 
 @MainActor final class FakeDesktopApplier: DesktopApplying {
@@ -58,6 +59,7 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
     let applier = FakeDesktopApplier()
     let watcher = FakeWatcher()
     let clock = TestClock()
+    let secrets = InMemorySecretStore()
     var displays: [Display] = [.main]
 
     init() throws {
@@ -72,6 +74,8 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
             applier: applier,
             displayProvider: FakeDisplayProvider(list: displays),
             tileRenderer: FakeTileRenderer(output: support.url.appendingPathComponent("tile.png")),
+            httpSession: MockURLProtocol.makeSession(),
+            secrets: secrets,
             now: { [clock] in clock.date })
     }
 
@@ -91,5 +95,74 @@ final class TestClock: @unchecked Sendable {
 
     func advance(by interval: TimeInterval) {
         lock.withLock { current = current.addingTimeInterval(interval) }
+    }
+}
+
+final class InMemorySecretStore: SecretStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: String] = [:]
+
+    func read(account: String) -> String? {
+        lock.withLock { values[account] }
+    }
+
+    func write(_ value: String?, account: String) throws {
+        lock.withLock { values[account] = (value?.isEmpty ?? true) ? nil : value }
+    }
+}
+
+/// Answers URL requests from a handler instead of the network.
+final class MockURLProtocol: URLProtocol, @unchecked Sendable {
+    struct Response {
+        var status = 200
+        var mimeType = "application/json"
+        var body = Data()
+    }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var handler: (@Sendable (URLRequest) -> Response)?
+    nonisolated(unsafe) private static var recorded: [URLRequest] = []
+
+    static func setHandler(_ handler: @escaping @Sendable (URLRequest) -> Response) {
+        lock.withLock {
+            self.handler = handler
+            recorded = []
+        }
+    }
+
+    static var requests: [URLRequest] {
+        lock.withLock { recorded }
+    }
+
+    static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let handler = Self.lock.withLock {
+            Self.recorded.append(request)
+            return Self.handler
+        }
+        let response = handler?(request) ?? Response(status: 500)
+        let http = HTTPURLResponse(
+            url: request.url!, statusCode: response.status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": response.mimeType])!
+        client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: response.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+enum Fixtures {
+    static func data(_ name: String) throws -> Data {
+        let url = try #require(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"))
+        return try Data(contentsOf: url)
     }
 }

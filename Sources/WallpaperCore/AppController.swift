@@ -12,6 +12,15 @@ import Observation
     public var statusMessage: String?
     /// When the active rotation source changes the wallpaper next. `nil` when rotation is off or paused.
     public private(set) var nextRotationDate: Date?
+    public private(set) var isFetchingWallhaven = false
+
+    /// Stored in the keychain rather than the settings file.
+    public var wallhavenAPIKey: String {
+        didSet {
+            guard wallhavenAPIKey != oldValue else { return }
+            save { try environment.secrets.write(wallhavenAPIKey, account: Self.wallhavenAPIKeyAccount) }
+        }
+    }
 
     public var settings: AppSettings {
         didSet { settingsDidChange(from: oldValue) }
@@ -29,6 +38,11 @@ import Observation
     @ObservationIgnored private var isScanning = false
     @ObservationIgnored private var needsAnotherScan = false
     @ObservationIgnored private var rotationTask: Task<Void, Never>?
+    /// Set after a failed Wallhaven download, to retry before the full period is over.
+    @ObservationIgnored private var rotationRetryDate: Date?
+    @ObservationIgnored private var watchedPaths: [String]?
+
+    static let wallhavenAPIKeyAccount = "wallhaven-api-key"
 
     public init(environment: AppEnvironment) {
         self.environment = environment
@@ -38,6 +52,7 @@ import Observation
         settings = settingsStore.load(default: AppSettings())
         library = libraryStore.load(default: LibraryState())
         runtime = runtimeStore.load(default: RuntimeState())
+        wallhavenAPIKey = environment.secrets.read(account: Self.wallhavenAPIKeyAccount) ?? ""
         desktop = DesktopService(
             applier: environment.applier,
             tileRenderer: environment.tileRenderer,
@@ -115,8 +130,16 @@ import Observation
         }
     }
 
+    /// Watches the sources and the Wallhaven download folder. Restarts only when the folders change.
     private func startWatching() {
-        environment.watcher.watch(paths: library.watchedPaths) { [weak self] in
+        var paths = library.watchedPaths
+        let downloads = settings.wallhaven.downloadFolder.standardizedFileURL.path
+        if FileManager.default.fileExists(atPath: downloads), !paths.contains(downloads) {
+            paths.append(downloads)
+        }
+        guard paths != watchedPaths else { return }
+        watchedPaths = paths
+        environment.watcher.watch(paths: paths) { [weak self] in
             Task { @MainActor in await self?.rescan() }
         }
     }
@@ -232,8 +255,10 @@ import Observation
     /// Changes the wallpaper if the active source is due. Called by the timer and after the Mac wakes.
     public func rotationTick() async {
         let source = settings.rotationSource
+        let now = environment.now()
         if isRotating(source), let interval = interval(for: source),
-           RotationSchedule.isDue(lastChange: lastChange(for: source), interval: interval, now: environment.now()) {
+           RotationSchedule.isDue(lastChange: lastChange(for: source), interval: interval, now: now),
+           rotationRetryDate.map({ $0 <= now }) ?? true {
             await rotate(using: source)
         }
         scheduleRotation()
@@ -264,7 +289,10 @@ import Observation
             return
         }
         let now = environment.now()
-        let next = RotationSchedule.nextChange(after: lastChange(for: source), interval: interval, now: now)
+        var next = RotationSchedule.nextChange(after: lastChange(for: source), interval: interval, now: now)
+        if let retry = rotationRetryDate, retry > next {
+            next = retry
+        }
         nextRotationDate = next
         let delay = max(0, next.timeIntervalSince(now))
         rotationTask = Task { [weak self] in
@@ -278,7 +306,7 @@ import Observation
         switch source {
         case .off: break
         case .local: rotateLocal()
-        case .wallhaven: break
+        case .wallhaven: await rotateWallhaven()
         }
     }
 
@@ -352,6 +380,100 @@ import Observation
         saveRuntime()
     }
 
+    // MARK: - Wallhaven
+
+    /// Fetches from Wallhaven right away, whichever source is active.
+    public func fetchFromWallhaven() async {
+        await rotateWallhaven()
+        scheduleRotation()
+    }
+
+    /// Downloads a new wallpaper (one per display in per-display mode) and shows it.
+    private func rotateWallhaven() async {
+        guard !isFetchingWallhaven else { return }
+        isFetchingWallhaven = true
+        defer { isFetchingWallhaven = false }
+
+        displays = environment.displayProvider.displays()
+        let targets: [String?] = settings.displayMode == .perDisplay && displays.count > 1 ? displays.map(\.id) : [nil]
+        do {
+            for displayID in targets {
+                let wallpaper = try await downloadWallhavenWallpaper()
+                setWallpaper(id: wallpaper.id, displayID: displayID)
+            }
+            rotationRetryDate = nil
+            setLastChange(environment.now(), for: .wallhaven)
+            pruneWallhavenDownloads()
+            startWatching()
+        } catch {
+            report(error)
+            // Retry sooner than a full period, but don't hammer the API.
+            if settings.rotationSource == .wallhaven {
+                let delay: TimeInterval = (error as? WallhavenError) == .rateLimited ? 60 : 5 * 60
+                rotationRetryDate = environment.now().addingTimeInterval(delay)
+            }
+        }
+    }
+
+    /// Searches with a random keyword and downloads a result that wasn't shown before.
+    private func downloadWallhavenWallpaper() async throws -> Wallpaper {
+        let wallhaven = settings.wallhaven
+        let client = WallhavenClient(session: environment.httpSession, apiKey: wallhavenAPIKey)
+        let keyword = wallhaven.cleanedKeywords.randomElement()
+        var seed = WallhavenQuery.makeSeed()
+        let seen = Set(runtime.seenWallhavenIDs)
+
+        var fallback: WallhavenWallpaper?
+        var choice: WallhavenWallpaper?
+        for page in 1...3 {
+            let response = try await client.search(WallhavenQuery(settings: wallhaven, keyword: keyword, page: page, seed: seed))
+            fallback = fallback ?? response.data.first
+            // Later pages must use the seed Wallhaven actually used, or results repeat.
+            seed = response.meta.seed ?? seed
+            choice = response.data.first { !seen.contains($0.id) }
+            if choice != nil || page >= response.meta.lastPage { break }
+        }
+        // Everything was seen before: showing a repeat beats showing nothing.
+        guard let item = choice ?? fallback else { throw WallhavenError.noResults }
+
+        let file = try await client.download(item, to: wallhaven.downloadFolder)
+        runtime.seenWallhavenIDs = Array((runtime.seenWallhavenIDs.filter { $0 != item.id } + [item.id]).suffix(2000))
+
+        let path = file.standardizedFileURL.path
+        if library.wallpaper(id: path) == nil {
+            library.wallpapers.append(Wallpaper(
+                path: path, origin: .wallhaven(id: item.id), mode: wallhaven.defaultMode,
+                fillColor: wallhaven.defaultFillColor, dateAdded: environment.now()))
+            saveLibrary()
+        }
+        return library.wallpaper(id: path)!
+    }
+
+    /// Deletes the oldest downloads beyond the retention limit, except kept or shown ones.
+    private func pruneWallhavenDownloads() {
+        let shown = Set(runtime.currentWallpapers.values)
+        let doomed = WallhavenRetention.downloadsToRemove(
+            in: library, limit: settings.wallhaven.retentionLimit, shown: shown)
+        guard !doomed.isEmpty else { return }
+        let ids = Set(doomed.map(\.id))
+        for wallpaper in doomed {
+            try? FileManager.default.removeItem(at: wallpaper.url)
+        }
+        library.wallpapers.removeAll { ids.contains($0.id) }
+        saveLibrary()
+    }
+
+    /// Protects Wallhaven downloads from cleanup, which also lets local cycling show them.
+    public func setKept(_ kept: Bool, ids: [Wallpaper.ID]) {
+        for id in ids {
+            library.updateWallpaper(id: id) { $0.isKept = kept }
+        }
+        saveLibrary()
+        if !kept {
+            pruneWallhavenDownloads()
+        }
+    }
+
     // MARK: - Settings
 
     private func settingsDidChange(from old: AppSettings) {
@@ -369,6 +491,10 @@ import Observation
         if sourceChanged || resumed {
             // Count the period from now rather than from an old change or the pause.
             setLastChange(environment.now(), for: settings.rotationSource)
+            rotationRetryDate = nil
+        }
+        if settings.wallhaven.downloadFolderPath != old.wallhaven.downloadFolderPath {
+            startWatching()
         }
         if sourceChanged || settings.isRotationPaused != old.isRotationPaused
             || settings.cycling.interval != old.cycling.interval

@@ -3,13 +3,14 @@ import UniformTypeIdentifiers
 
 /// Open panels for choosing library sources.
 @MainActor enum SourcePicker {
-    static func chooseFolders() -> [URL] {
+    static func chooseFolders(allowsMultiple: Bool = true) -> [URL] {
         let panel = NSOpenPanel()
-        panel.title = "Choose Wallpaper Folders"
-        panel.prompt = "Add"
+        panel.title = allowsMultiple ? "Choose Wallpaper Folders" : "Choose Folder"
+        panel.prompt = allowsMultiple ? "Add" : "Choose"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.allowsMultipleSelection = true
+        panel.canCreateDirectories = !allowsMultiple
+        panel.allowsMultipleSelection = allowsMultiple
         return panel.runModal() == .OK ? panel.urls : []
     }
 

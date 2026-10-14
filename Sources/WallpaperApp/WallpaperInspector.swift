@@ -48,6 +48,20 @@ struct WallpaperInspector: View {
                 setButton
             }
 
+            if case .wallhaven(let id) = wallpaper.origin {
+                Section("Wallhaven") {
+                    Toggle("Keep", isOn: Binding(
+                        get: { wallpaper.isKept },
+                        set: { controller.setKept($0, ids: [wallpaper.id]) }))
+                    Text(wallpaper.isKept
+                         ? "Kept downloads are never deleted and can be shown by local cycling."
+                         : "Deleted automatically once newer downloads replace it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Link("Open on Wallhaven", destination: WallhavenLinks.page(for: id))
+                }
+            }
+
             Section("Info") {
                 LabeledContent("Name", value: wallpaper.fileName)
                 if let imageSize {

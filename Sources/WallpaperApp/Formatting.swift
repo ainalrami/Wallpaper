@@ -13,6 +13,12 @@ extension ScalingMode {
     }
 }
 
+enum WallhavenLinks {
+    static func page(for id: String) -> URL {
+        URL(string: "https://wallhaven.cc/w/\(id)")!
+    }
+}
+
 extension RGBAColor {
     var color: Color { Color(nsColor: nsColor) }
 

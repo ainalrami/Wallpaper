@@ -18,7 +18,7 @@ import WallpaperCore
     }
 
     func showSettings() {
-        show(id: "settings", title: "Settings", size: NSSize(width: 560, height: 420), resizable: false) {
+        show(id: "settings", title: "Settings", size: NSSize(width: 580, height: 560), resizable: false) {
             SettingsView()
         }
     }
