@@ -3,10 +3,22 @@ import WallpaperCore
 
 @main
 struct WallpaperApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
-        MenuBarExtra(WallpaperCore.appName, systemImage: "photo.on.rectangle") {
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .keyboardShortcut("q")
+        MenuBarExtra {
+            MenuBarContent()
+                .environment(appDelegate.controller)
+                .environment(appDelegate.windows)
+        } label: {
+            Image(systemName: "photo.on.rectangle.angled")
+        }
+        .menuBarExtraStyle(.window)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { appDelegate.windows.showSettings() }
+                    .keyboardShortcut(",")
+            }
         }
     }
 }

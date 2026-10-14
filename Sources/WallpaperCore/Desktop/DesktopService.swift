@@ -44,7 +44,8 @@ import AppKit
         self.variantsDirectory = variantsDirectory
     }
 
-    public func apply(_ wallpaper: Wallpaper, to display: Display) throws {
+    /// - Parameter onlyIfChanged: skip displays that already show the wallpaper with the same options.
+    public func apply(_ wallpaper: Wallpaper, to display: Display, onlyIfChanged: Bool = false) throws {
         guard FileManager.default.fileExists(atPath: wallpaper.path) else {
             throw DesktopError.unreadableImage(wallpaper.path)
         }
@@ -53,12 +54,17 @@ import AppKit
             ? try tileRenderer.tiledImage(for: wallpaper.url, pixelWidth: display.pixelWidth, pixelHeight: display.pixelHeight)
             : wallpaper.url
 
-        // macOS ignores new options when the image URL doesn't change, so show the same
-        // file through another name when only the options differ.
-        if let current = applier.currentImage(for: display.id),
-           current.url.standardizedFileURL == imageURL.standardizedFileURL,
-           !options.matches(current.options) {
-            imageURL = try variant(of: imageURL)
+        if let current = applier.currentImage(for: display.id) {
+            let currentURL = current.url.standardizedFileURL
+            let showsImage = currentURL == imageURL.standardizedFileURL || currentURL == variantURL(for: imageURL)
+            if onlyIfChanged, showsImage, options.matches(current.options) {
+                return
+            }
+            // macOS ignores new options when the image URL doesn't change, so show the same
+            // file through another name when only the options differ.
+            if currentURL == imageURL.standardizedFileURL, !options.matches(current.options) {
+                imageURL = try variant(of: imageURL)
+            }
         }
         try applier.setImage(imageURL, options: options, for: display.id)
     }
@@ -66,7 +72,7 @@ import AppKit
     /// Applies the wallpaper assigned to every display and returns the errors that occurred.
     @discardableResult
     public func applyAssigned(
-        state: RuntimeState, library: LibraryState, mode: DisplayMode, displays: [Display]
+        state: RuntimeState, library: LibraryState, mode: DisplayMode, displays: [Display], onlyIfChanged: Bool = false
     ) -> [Error] {
         var errors: [Error] = []
         for display in displays {
@@ -74,7 +80,7 @@ import AppKit
                 continue
             }
             do {
-                try apply(wallpaper, to: display)
+                try apply(wallpaper, to: display, onlyIfChanged: onlyIfChanged)
             } catch {
                 errors.append(error)
             }
@@ -82,11 +88,15 @@ import AppKit
         return errors
     }
 
+    private func variantURL(for url: URL) -> URL {
+        variantsDirectory.appendingPathComponent("variant-\(TileRenderer.pathKey(for: url)).\(url.pathExtension)")
+            .standardizedFileURL
+    }
+
     /// A hard link (or copy, across volumes) of `url` with a different file name.
     private func variant(of url: URL) throws -> URL {
         try FileManager.default.createDirectory(at: variantsDirectory, withIntermediateDirectories: true)
-        let pathKey = TileRenderer.pathKey(for: url)
-        let target = variantsDirectory.appendingPathComponent("variant-\(pathKey).\(url.pathExtension)")
+        let target = variantURL(for: url)
         if FileManager.default.fileExists(atPath: target.path) {
             return target
         }

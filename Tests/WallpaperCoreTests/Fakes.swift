@@ -35,3 +35,45 @@ extension Display {
     static let main = Display(id: "MAIN", name: "Built-in", pixelWidth: 3024, pixelHeight: 1964, isMain: true)
     static let external = Display(id: "EXT", name: "Studio Display", pixelWidth: 5120, pixelHeight: 2880)
 }
+
+final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
+    private(set) var paths: [String] = []
+    private var onChange: (@Sendable () -> Void)?
+
+    func watch(paths: [String], onChange: @escaping @Sendable () -> Void) {
+        self.paths = paths
+        self.onChange = onChange
+    }
+
+    func stop() {
+        paths = []
+        onChange = nil
+    }
+}
+
+/// An `AppController` wired to fakes and a temporary support folder.
+@MainActor struct ControllerHarness {
+    let support: TemporaryDirectory
+    let pictures: TemporaryDirectory
+    let applier = FakeDesktopApplier()
+    let watcher = FakeWatcher()
+    var displays: [Display] = [.main]
+
+    init() throws {
+        support = try TemporaryDirectory()
+        pictures = try TemporaryDirectory()
+    }
+
+    var environment: AppEnvironment {
+        AppEnvironment(
+            paths: AppPaths(supportDirectory: support.url),
+            watcher: watcher,
+            applier: applier,
+            displayProvider: FakeDisplayProvider(list: displays),
+            tileRenderer: FakeTileRenderer(output: support.url.appendingPathComponent("tile.png")))
+    }
+
+    func makeController() -> AppController {
+        AppController(environment: environment)
+    }
+}
