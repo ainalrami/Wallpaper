@@ -1,7 +1,8 @@
 import SwiftUI
 import WallpaperCore
 
-struct WallhavenSettingsView: View {
+/// The Wallhaven sections of the Rotation settings form.
+struct WallhavenSettingsSections: View {
     @Environment(AppController.self) private var controller
 
     static let resolutionPresets: [Resolution] = [
@@ -13,7 +14,7 @@ struct WallhavenSettingsView: View {
 
     var body: some View {
         @Bindable var controller = controller
-        Form {
+        Group {
             Section {
                 TextField("Keywords", text: keywords, prompt: Text("nature, mountains, space"))
                 resolutionPicker
@@ -34,13 +35,13 @@ struct WallhavenSettingsView: View {
                 }
                 SecureField("API key", text: $controller.wallhavenAPIKey, prompt: Text("Optional"))
             } header: {
-                Text("Search")
+                SourceHeader(title: "Wallhaven", isActive: controller.settings.rotationSource == .wallhaven)
             } footer: {
                 Text("Each change searches one keyword at random; leave keywords empty for any wallpaper. An API key from your Wallhaven account settings is needed only for NSFW results.")
                     .foregroundStyle(.secondary)
             }
 
-            Section("Changes") {
+            Section("Wallhaven Changes") {
                 IntervalPicker(title: "Change every", interval: $controller.settings.wallhaven.interval)
                 Toggle("Change wallpaper when the app starts", isOn: $controller.settings.wallhaven.changeAtStartup)
                 HStack {
@@ -53,14 +54,14 @@ struct WallhavenSettingsView: View {
                     }
                     Spacer()
                     if controller.settings.rotationSource != .wallhaven {
-                        Button("Use Wallhaven for Automatic Changes") {
+                        Button("Use for Automatic Changes") {
                             controller.settings.rotationSource = .wallhaven
                         }
                     }
                 }
             }
 
-            Section("Downloads") {
+            Section("Wallhaven Downloads") {
                 Picker("Mode", selection: $controller.settings.wallhaven.defaultMode) {
                     ForEach(ScalingMode.allCases) { Text($0.title).tag($0) }
                 }
@@ -91,7 +92,6 @@ struct WallhavenSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
     }
 
     /// Comma-separated keywords, kept exactly as typed; blanks are ignored when searching.
