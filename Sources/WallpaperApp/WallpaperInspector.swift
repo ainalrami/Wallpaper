@@ -85,13 +85,13 @@ struct WallpaperInspector: View {
     }
 
     @ViewBuilder private var setButton: some View {
-        if controller.settings.displayMode == .perDisplay, controller.displays.count > 1 {
-            Menu("Set as Wallpaper") {
-                Button("All Displays") { controller.setWallpaper(id: wallpaper.id) }
-                Divider()
-                ForEach(controller.displays) { display in
-                    Button(display.name) { controller.setWallpaper(id: wallpaper.id, displayID: display.id) }
-                }
+        if SetWallpaperMenuItems.hasChoices(controller) {
+            Menu {
+                SetWallpaperMenuItems(wallpaper: wallpaper)
+            } label: {
+                Text(controller.targetContext.isPerSpace ? "Set for This Space" : "Set as Wallpaper")
+            } primaryAction: {
+                controller.setWallpaper(id: wallpaper.id)
             }
         } else {
             Button("Set as Wallpaper") { controller.setWallpaper(id: wallpaper.id) }

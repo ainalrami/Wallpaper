@@ -85,13 +85,9 @@ struct WallpaperActions: View {
     let wallpaper: Wallpaper
 
     var body: some View {
-        if controller.settings.displayMode == .perDisplay, controller.displays.count > 1 {
+        if SetWallpaperMenuItems.hasChoices(controller) {
             Menu("Set as Wallpaper") {
-                Button("All Displays") { controller.setWallpaper(id: wallpaper.id) }
-                Divider()
-                ForEach(controller.displays) { display in
-                    Button(display.name) { controller.setWallpaper(id: wallpaper.id, displayID: display.id) }
-                }
+                SetWallpaperMenuItems(wallpaper: wallpaper)
             }
         } else {
             Button("Set as Wallpaper") { controller.setWallpaper(id: wallpaper.id) }

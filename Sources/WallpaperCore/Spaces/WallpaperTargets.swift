@@ -67,7 +67,7 @@ public struct TargetContext: Sendable {
             return WallpaperTarget(
                 key: key, title: mode == .same ? "All Displays" : display.name, lookupKeys: lookupKeys(for: display))
         }
-        return spaceTarget(display: display, space: space)
+        return target(display: display, space: space)
     }
 
     /// Every Space target (one per group or ungrouped Space) on the displays, in display order.
@@ -77,7 +77,7 @@ public struct TargetContext: Sendable {
         var targets: [WallpaperTarget] = []
         for display in displays {
             for space in layout.spaces(on: display.id) {
-                let target = spaceTarget(display: display, space: space)
+                let target = target(display: display, space: space)
                 if seen.insert(target.key).inserted {
                     targets.append(target)
                 }
@@ -86,7 +86,8 @@ public struct TargetContext: Sendable {
         return targets
     }
 
-    private func spaceTarget(display: Display, space: DesktopSpace) -> WallpaperTarget {
+    /// The target of a Space on a display: its group, or the Space itself.
+    public func target(display: Display, space: DesktopSpace) -> WallpaperTarget {
         var title = spaceSettings.group(containing: space.id)?.name ?? space.title
         // Name the display when Spaces belong to one of several displays.
         if displays.count > 1, !(layout?.spansDisplays ?? false) || mode == .perDisplay {

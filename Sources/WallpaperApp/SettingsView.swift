@@ -7,6 +7,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gearshape") }
+            SpacesSettingsView()
+                .tabItem { Label("Spaces", systemImage: "square.stack.3d.up") }
             RotationSettingsView()
                 .tabItem { Label("Rotation", systemImage: "arrow.triangle.2.circlepath") }
         }

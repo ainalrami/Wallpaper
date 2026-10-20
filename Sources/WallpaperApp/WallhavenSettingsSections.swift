@@ -41,7 +41,7 @@ struct WallhavenSettingsSections: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Wallhaven Changes") {
+            Section {
                 IntervalPicker(title: "Change every", interval: $controller.settings.wallhaven.interval)
                 Toggle("Change wallpaper when the app starts", isOn: $controller.settings.wallhaven.changeAtStartup)
                 HStack {
@@ -58,6 +58,13 @@ struct WallhavenSettingsSections: View {
                             controller.settings.rotationSource = .wallhaven
                         }
                     }
+                }
+            } header: {
+                Text("Wallhaven Changes")
+            } footer: {
+                if controller.targetContext.isPerSpace {
+                    Text("With a wallpaper for each Space, every change downloads one image per Space or group.")
+                        .foregroundStyle(.secondary)
                 }
             }
 

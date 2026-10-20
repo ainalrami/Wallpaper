@@ -10,9 +10,7 @@ struct MenuBarContent: View {
             Text(WallpaperCore.appName).font(.headline)
 
             ForEach(shownDisplays) { display in
-                CurrentWallpaperRow(
-                    title: controller.settings.displayMode == .perDisplay ? display.name : nil,
-                    wallpaper: controller.currentWallpaper(on: display))
+                CurrentWallpaperRow(title: rowTitle(for: display), wallpaper: controller.currentWallpaper(on: display))
             }
 
             HStack {
@@ -84,10 +82,19 @@ struct MenuBarContent: View {
         .foregroundStyle(.secondary)
     }
 
-    /// One row in "same" mode, one per display otherwise.
+    /// The current Space or group with per-Space wallpapers, the display name in per-display mode.
+    private func rowTitle(for display: Display) -> String? {
+        if controller.targetContext.isPerSpace {
+            return controller.currentTarget(on: display).title
+        }
+        return controller.settings.displayMode == .perDisplay ? display.name : nil
+    }
+
+    /// One row in "same" mode, one per display otherwise. Spaces can differ per display, so
+    /// per-Space wallpapers also get one row per display.
     private var shownDisplays: [Display] {
         let displays = controller.displays
-        guard controller.settings.displayMode == .perDisplay else {
+        guard controller.settings.displayMode == .perDisplay || controller.targetContext.isPerSpace else {
             return Array((displays.first(where: \.isMain) ?? displays.first).map { [$0] } ?? [])
         }
         return displays

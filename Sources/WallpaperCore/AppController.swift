@@ -265,6 +265,11 @@ import Observation
         targetContext.currentTarget(for: display)
     }
 
+    /// The wallpaper a target shows, including one inherited from its display or all displays.
+    public func wallpaper(for target: WallpaperTarget) -> Wallpaper? {
+        runtime.wallpaperID(forKeys: target.lookupKeys).flatMap(library.wallpaper(id:))
+    }
+
     /// Reads the displays and Spaces again.
     public func refreshDisplaysAndSpaces() {
         displays = environment.displayProvider.displays()
