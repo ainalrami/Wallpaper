@@ -74,11 +74,17 @@ import AppKit
     public func applyAssigned(
         state: RuntimeState, library: LibraryState, mode: DisplayMode, displays: [Display], onlyIfChanged: Bool = false
     ) -> [Error] {
+        let assignments = displays.compactMap { display in
+            state.wallpaperID(for: display, mode: mode).flatMap(library.wallpaper(id:)).map { ($0, display) }
+        }
+        return apply(assignments, onlyIfChanged: onlyIfChanged)
+    }
+
+    /// Applies each wallpaper to its display and returns the errors that occurred.
+    @discardableResult
+    public func apply(_ assignments: [(Wallpaper, Display)], onlyIfChanged: Bool = false) -> [Error] {
         var errors: [Error] = []
-        for display in displays {
-            guard let id = state.wallpaperID(for: display, mode: mode), let wallpaper = library.wallpaper(id: id) else {
-                continue
-            }
+        for (wallpaper, display) in assignments {
             do {
                 try apply(wallpaper, to: display, onlyIfChanged: onlyIfChanged)
             } catch {
@@ -153,10 +159,22 @@ extension RuntimeState {
                     currentWallpapers[display.id] = shared
                 }
             }
+            // Per-Space wallpapers move from the shared key to each display's key.
+            for (key, id) in currentWallpapers where key.hasPrefix("\(Self.allDisplaysKey)#") {
+                let suffix = key.dropFirst(Self.allDisplaysKey.count)
+                for display in displays where currentWallpapers[display.id + suffix] == nil {
+                    currentWallpapers[display.id + suffix] = id
+                }
+            }
         case .same:
             let main = displays.first(where: \.isMain) ?? displays.first
             if let main, let id = currentWallpapers[main.id] {
                 currentWallpapers[Self.allDisplaysKey] = id
+            }
+            if let main {
+                for (key, id) in currentWallpapers where key.hasPrefix("\(main.id)#") {
+                    currentWallpapers[Self.allDisplaysKey + key.dropFirst(main.id.count)] = id
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import Foundation
     public var watcher: FileSystemWatching
     public var applier: DesktopApplying
     public var displayProvider: DisplayProviding
+    public var spaceProvider: SpaceProviding
     public var tileRenderer: TileRendering
     public var httpSession: URLSession
     public var secrets: SecretStoring
@@ -16,6 +17,7 @@ import Foundation
         watcher: FileSystemWatching,
         applier: DesktopApplying,
         displayProvider: DisplayProviding,
+        spaceProvider: SpaceProviding = SkyLightSpaceProvider(),
         tileRenderer: TileRendering,
         httpSession: URLSession = .shared,
         secrets: SecretStoring = KeychainSecretStore(),
@@ -25,6 +27,7 @@ import Foundation
         self.watcher = watcher
         self.applier = applier
         self.displayProvider = displayProvider
+        self.spaceProvider = spaceProvider
         self.tileRenderer = tileRenderer
         self.httpSession = httpSession
         self.secrets = secrets

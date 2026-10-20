@@ -60,6 +60,7 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
     let watcher = FakeWatcher()
     let clock = TestClock()
     let secrets = InMemorySecretStore()
+    let spaces = FakeSpaceProvider()
     var displays: [Display] = [.main]
 
     init() throws {
@@ -73,6 +74,7 @@ final class FakeWatcher: FileSystemWatching, @unchecked Sendable {
             watcher: watcher,
             applier: applier,
             displayProvider: FakeDisplayProvider(list: displays),
+            spaceProvider: spaces,
             tileRenderer: FakeTileRenderer(output: support.url.appendingPathComponent("tile.png")),
             httpSession: MockURLProtocol.makeSession(),
             secrets: secrets,
@@ -164,5 +166,37 @@ enum Fixtures {
     static func data(_ name: String) throws -> Data {
         let url = try #require(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"))
         return try Data(contentsOf: url)
+    }
+}
+
+/// Spaces controlled by tests. Returns `nil` (no Space support) until a layout is set.
+final class FakeSpaceProvider: SpaceProviding, @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: SpaceLayout?
+
+    func layout() -> SpaceLayout? {
+        lock.withLock { current }
+    }
+
+    func set(_ layout: SpaceLayout?) {
+        lock.withLock { current = layout }
+    }
+
+    /// Desktops with the given IDs on one display; the first is current.
+    func setDesktops(_ ids: [String], on displayID: String = Display.main.id) {
+        set(SpaceLayout(spaces: ids.enumerated().map { index, id in
+            DesktopSpace(id: id, number: index + 1, displayID: displayID, isCurrent: index == 0)
+        }, spansDisplays: false))
+    }
+
+    /// Makes `id` the current Space on its display.
+    func switchTo(_ id: String) {
+        lock.withLock {
+            guard var layout = current, let target = layout.space(id: id) else { return }
+            for index in layout.spaces.indices where layout.spaces[index].displayID == target.displayID {
+                layout.spaces[index].isCurrent = layout.spaces[index].id == id
+            }
+            current = layout
+        }
     }
 }

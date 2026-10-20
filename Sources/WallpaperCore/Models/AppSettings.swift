@@ -154,9 +154,45 @@ public struct WallhavenSettings: Codable, Equatable, Sendable {
     }
 }
 
+/// Spaces that share one wallpaper.
+public struct SpaceGroup: Codable, Identifiable, Hashable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var spaceIDs: Set<String>
+
+    public init(id: UUID = UUID(), name: String, spaceIDs: Set<String> = []) {
+        self.id = id
+        self.name = name
+        self.spaceIDs = spaceIDs
+    }
+}
+
+public struct SpaceSettings: Codable, Equatable, Sendable {
+    /// Gives each Space (or group of Spaces) its own wallpaper.
+    public var isEnabled: Bool
+    public var groups: [SpaceGroup]
+
+    public init(isEnabled: Bool = false, groups: [SpaceGroup] = []) {
+        self.isEnabled = isEnabled
+        self.groups = groups
+    }
+
+    /// The group a Space belongs to. A Space listed in several groups uses the first.
+    public func group(containing spaceID: String) -> SpaceGroup? {
+        groups.first { $0.spaceIDs.contains(spaceID) }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try c.decode(Bool.self, forKey: .isEnabled, default: false)
+        groups = try c.decode([SpaceGroup].self, forKey: .groups, default: [])
+    }
+}
+
 /// User preferences.
 public struct AppSettings: Codable, Equatable, Sendable {
     public var displayMode: DisplayMode
+    public var spaces: SpaceSettings
     /// Mode given to newly found local wallpapers.
     public var defaultMode: ScalingMode
     public var defaultFillColor: RGBAColor
@@ -167,6 +203,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public init(
         displayMode: DisplayMode = .same,
+        spaces: SpaceSettings = SpaceSettings(),
         defaultMode: ScalingMode = .fill,
         defaultFillColor: RGBAColor = .black,
         rotationSource: RotationSource = .off,
@@ -175,6 +212,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         wallhaven: WallhavenSettings = WallhavenSettings()
     ) {
         self.displayMode = displayMode
+        self.spaces = spaces
         self.defaultMode = defaultMode
         self.defaultFillColor = defaultFillColor
         self.rotationSource = rotationSource
@@ -187,6 +225,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppSettings()
         displayMode = try c.decode(DisplayMode.self, forKey: .displayMode, default: d.displayMode)
+        spaces = try c.decode(SpaceSettings.self, forKey: .spaces, default: d.spaces)
         defaultMode = try c.decode(ScalingMode.self, forKey: .defaultMode, default: d.defaultMode)
         defaultFillColor = try c.decode(RGBAColor.self, forKey: .defaultFillColor, default: d.defaultFillColor)
         rotationSource = try c.decode(RotationSource.self, forKey: .rotationSource, default: d.rotationSource)

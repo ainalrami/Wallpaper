@@ -6,6 +6,8 @@ import Observation
     public private(set) var library: LibraryState
     public private(set) var runtime: RuntimeState
     public private(set) var displays: [Display] = []
+    /// The desktops of every display. `nil` when Spaces can't be read.
+    public private(set) var spaceLayout: SpaceLayout?
     /// `true` once the sources have been scanned after launch.
     public private(set) var hasScanned = false
     /// The most recent problem, shown to the user until dismissed.
@@ -69,7 +71,7 @@ import Observation
 
     /// Finds moved sources, starts watching folders, and scans the library.
     public func start() async {
-        displays = environment.displayProvider.displays()
+        refreshDisplaysAndSpaces()
         if library.resolveMovedSources() {
             saveLibrary()
         }
@@ -186,7 +188,7 @@ import Observation
         saveLibrary()
 
         if after.mode != before.mode || after.fillColor != before.fillColor {
-            for display in displays where runtime.wallpaperID(for: display, mode: settings.displayMode) == id {
+            for display in displays where currentWallpaper(on: display)?.id == id {
                 apply(after, to: display)
             }
         }
@@ -199,10 +201,17 @@ import Observation
         saveLibrary()
     }
 
-    /// Shows a wallpaper. `displayID == nil` shows it on every display.
+    /// Shows a wallpaper. `displayID == nil` shows it on every display. With per-Space wallpapers,
+    /// it is set for the current Space of those displays.
     public func setWallpaper(id: Wallpaper.ID, displayID: String? = nil) {
         guard let wallpaper = library.wallpaper(id: id) else { return }
-        displays = environment.displayProvider.displays()
+        refreshDisplaysAndSpaces()
+        let context = targetContext
+        if context.isPerSpace {
+            let scope = displayID.map { id in displays.filter { $0.id == id } } ?? displays
+            assign(id, keys: Set(scope.map(context.activeKey(for:))))
+            return
+        }
         runtime.setWallpaper(id, for: displayID, mode: settings.displayMode, displays: displays)
         saveRuntime()
 
@@ -214,9 +223,9 @@ import Observation
         }
     }
 
-    /// The wallpaper currently shown on `display`.
+    /// The wallpaper currently shown on `display` (on its current Space).
     public func currentWallpaper(on display: Display) -> Wallpaper? {
-        runtime.wallpaperID(for: display, mode: settings.displayMode).flatMap(library.wallpaper(id:))
+        runtime.wallpaperID(forKeys: targetContext.lookupKeys(for: display)).flatMap(library.wallpaper(id:))
     }
 
     // MARK: - Displays
@@ -224,9 +233,9 @@ import Observation
     /// Re-applies assigned wallpapers to displays that don't show them, e.g. after a display is
     /// connected or the user switches to another Space.
     public func reapplyCurrent() {
-        displays = environment.displayProvider.displays()
-        let errors = desktop.applyAssigned(
-            state: runtime, library: library, mode: settings.displayMode, displays: displays, onlyIfChanged: true)
+        refreshDisplaysAndSpaces()
+        let assignments = displays.compactMap { display in currentWallpaper(on: display).map { ($0, display) } }
+        let errors = desktop.apply(assignments, onlyIfChanged: true)
         if let error = errors.first {
             report(error)
         }
@@ -242,6 +251,138 @@ import Observation
 
     private func report(_ error: Error) {
         statusMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+
+    // MARK: - Spaces
+
+    /// Assignment keys for the current displays, display mode, and Spaces.
+    public var targetContext: TargetContext {
+        TargetContext(displays: displays, mode: settings.displayMode, layout: spaceLayout, spaceSettings: settings.spaces)
+    }
+
+    /// The target shown on `display` right now, e.g. "Desktop 3" or a group name.
+    public func currentTarget(on display: Display) -> WallpaperTarget {
+        targetContext.currentTarget(for: display)
+    }
+
+    /// Reads the displays and Spaces again.
+    public func refreshDisplaysAndSpaces() {
+        displays = environment.displayProvider.displays()
+        spaceLayout = environment.spaceProvider.layout()
+    }
+
+    /// Shows a wallpaper on a Space target. It appears now if that Space is active, otherwise
+    /// when you switch to it.
+    public func setWallpaper(id: Wallpaper.ID, target: WallpaperTarget) {
+        refreshDisplaysAndSpaces()
+        assign(id, keys: [target.key])
+    }
+
+    /// Shows a wallpaper on every Space of a display (`nil`: all displays), replacing per-Space wallpapers.
+    public func setWallpaperOnAllSpaces(id: Wallpaper.ID, displayID: String? = nil) {
+        refreshDisplaysAndSpaces()
+        let context = targetContext
+        guard context.isPerSpace else {
+            setWallpaper(id: id, displayID: displayID)
+            return
+        }
+        let scope = displayID.map { id in displays.filter { $0.id == id } } ?? displays
+        for display in scope {
+            runtime.clearSpaceWallpapers(under: context.displayKey(for: display))
+        }
+        if settings.displayMode == .perDisplay, let displayID {
+            runtime.currentWallpapers[displayID] = id
+        } else {
+            runtime.setWallpaper(id, for: nil, mode: settings.displayMode, displays: displays)
+        }
+        saveRuntime()
+        if let wallpaper = library.wallpaper(id: id) {
+            for display in scope {
+                apply(wallpaper, to: display)
+            }
+        }
+    }
+
+    /// Stores `id` under `keys` and applies it to displays whose active Space uses one of them.
+    private func assign(_ id: Wallpaper.ID, keys: Set<String>) {
+        guard let wallpaper = library.wallpaper(id: id) else { return }
+        for key in keys {
+            runtime.currentWallpapers[key] = id
+        }
+        saveRuntime()
+        let context = targetContext
+        for display in displays where keys.contains(context.activeKey(for: display)) {
+            apply(wallpaper, to: display)
+        }
+    }
+
+    /// Creates a group of Spaces that share a wallpaper. The first Space's wallpaper becomes the group's.
+    @discardableResult
+    public func createSpaceGroup(named name: String, spaceIDs: [DesktopSpace.ID] = []) -> SpaceGroup {
+        let group = SpaceGroup(name: name)
+        settings.spaces.groups.append(group)
+        for spaceID in spaceIDs {
+            setSpaceGroup(group.id, forSpace: spaceID)
+        }
+        return group
+    }
+
+    public func renameSpaceGroup(id: SpaceGroup.ID, to name: String) {
+        guard let index = settings.spaces.groups.firstIndex(where: { $0.id == id }) else { return }
+        settings.spaces.groups[index].name = name
+    }
+
+    /// Deletes a group. Its Spaces keep showing the group's wallpaper as their own.
+    public func deleteSpaceGroup(id: SpaceGroup.ID) {
+        guard let group = settings.spaces.groups.first(where: { $0.id == id }) else { return }
+        for spaceID in group.spaceIDs {
+            for displayKey in displayKeys(showing: spaceID) {
+                let own = "\(displayKey)#s:\(spaceID)"
+                if runtime.currentWallpapers[own] == nil {
+                    runtime.currentWallpapers[own] = runtime.currentWallpapers["\(displayKey)#g:\(id.uuidString)"]
+                }
+            }
+        }
+        runtime.currentWallpapers = runtime.currentWallpapers.filter { !$0.key.hasSuffix("#g:\(id.uuidString)") }
+        saveRuntime()
+        settings.spaces.groups.removeAll { $0.id == id }
+    }
+
+    /// Moves a Space into a group, or out of all groups with `nil`. A group without a wallpaper
+    /// takes the Space's, and a Space leaving a group keeps the group's.
+    public func setSpaceGroup(_ groupID: SpaceGroup.ID?, forSpace spaceID: DesktopSpace.ID) {
+        let oldKey = targetContext.spaceKey(for: spaceID)
+        for displayKey in displayKeys(showing: spaceID) {
+            let previous = runtime.currentWallpapers["\(displayKey)#\(oldKey)"]
+            let newKey = "\(displayKey)#" + (groupID.map { "g:\($0.uuidString)" } ?? "s:\(spaceID)")
+            if runtime.currentWallpapers[newKey] == nil, let previous {
+                runtime.currentWallpapers[newKey] = previous
+            }
+        }
+        saveRuntime()
+
+        var spaces = settings.spaces
+        for index in spaces.groups.indices {
+            spaces.groups[index].spaceIDs.remove(spaceID)
+            if spaces.groups[index].id == groupID {
+                spaces.groups[index].spaceIDs.insert(spaceID)
+            }
+        }
+        settings.spaces = spaces
+    }
+
+    /// Display keys of the displays a Space appears on.
+    private func displayKeys(showing spaceID: DesktopSpace.ID) -> [String] {
+        let context = targetContext
+        guard let layout = spaceLayout else { return [] }
+        var keys: [String] = []
+        for display in displays where layout.spaces(on: display.id).contains(where: { $0.id == spaceID }) {
+            let key = context.displayKey(for: display)
+            if !keys.contains(key) {
+                keys.append(key)
+            }
+        }
+        return keys
     }
 
     // MARK: - Rotation
@@ -318,29 +459,51 @@ import Observation
             statusMessage = "No wallpapers are included in cycling."
             return
         }
-        displays = environment.displayProvider.displays()
         var generator = SystemRandomNumberGenerator()
         var history = runtime.cyclingHistory
-
-        if settings.displayMode == .perDisplay {
-            var picked = Set<Wallpaper.ID>()
-            for display in displays {
-                guard let pick = WallpaperPicker.next(
-                    from: candidates, order: settings.cycling.order,
-                    current: runtime.wallpaperID(for: display, mode: .perDisplay),
-                    avoiding: picked, history: history, using: &generator) else { continue }
-                history = pick.history
-                picked.insert(pick.wallpaperID)
-                setWallpaper(id: pick.wallpaperID, displayID: display.id)
-            }
-        } else if let pick = WallpaperPicker.next(
-            from: candidates, order: settings.cycling.order,
-            current: runtime.currentWallpapers[RuntimeState.allDisplaysKey],
-            history: history, using: &generator) {
+        var picked = Set<Wallpaper.ID>()
+        for placement in rotationPlacements() {
+            guard let pick = WallpaperPicker.next(
+                from: candidates, order: settings.cycling.order, current: placement.current,
+                avoiding: picked, history: history, using: &generator) else { continue }
             history = pick.history
-            setWallpaper(id: pick.wallpaperID)
+            picked.insert(pick.wallpaperID)
+            place(pick.wallpaperID, placement)
         }
         runtime.cyclingHistory = history
+    }
+
+    /// Where rotation puts wallpapers: every Space target, every display, or all displays at once.
+    private struct Placement {
+        enum Kind {
+            case display(String?)
+            case key(String)
+        }
+        var kind: Kind
+        var current: Wallpaper.ID?
+    }
+
+    private func rotationPlacements() -> [Placement] {
+        refreshDisplaysAndSpaces()
+        let context = targetContext
+        if context.isPerSpace {
+            return context.spaceTargets().map {
+                Placement(kind: .key($0.key), current: runtime.wallpaperID(forKeys: $0.lookupKeys))
+            }
+        }
+        if settings.displayMode == .perDisplay, displays.count > 1 {
+            return displays.map {
+                Placement(kind: .display($0.id), current: runtime.wallpaperID(for: $0, mode: .perDisplay))
+            }
+        }
+        return [Placement(kind: .display(nil), current: runtime.currentWallpapers[RuntimeState.allDisplaysKey])]
+    }
+
+    private func place(_ id: Wallpaper.ID, _ placement: Placement) {
+        switch placement.kind {
+        case .display(let displayID): setWallpaper(id: id, displayID: displayID)
+        case .key(let key): assign(id, keys: [key])
+        }
     }
 
     private func isRotating(_ source: RotationSource) -> Bool {
@@ -394,12 +557,10 @@ import Observation
         isFetchingWallhaven = true
         defer { isFetchingWallhaven = false }
 
-        displays = environment.displayProvider.displays()
-        let targets: [String?] = settings.displayMode == .perDisplay && displays.count > 1 ? displays.map(\.id) : [nil]
         do {
-            for displayID in targets {
+            for placement in rotationPlacements() {
                 let wallpaper = try await downloadWallhavenWallpaper()
-                setWallpaper(id: wallpaper.id, displayID: displayID)
+                place(wallpaper.id, placement)
             }
             rotationRetryDate = nil
             statusMessage = nil
@@ -484,6 +645,8 @@ import Observation
             displays = environment.displayProvider.displays()
             runtime.switchDisplayMode(to: settings.displayMode, displays: displays)
             saveRuntime()
+            reapplyCurrent()
+        } else if settings.spaces != old.spaces {
             reapplyCurrent()
         }
 
