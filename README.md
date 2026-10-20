@@ -7,6 +7,7 @@ A native macOS menu bar app for managing desktop wallpapers. It adds what System
 - **Configurable cycling:** period, which wallpapers are included, random or sequential order, and whether to change at startup.
 - **[Wallhaven](https://wallhaven.cc) as a source:** keywords, minimum resolution, categories, purity, period, and whether to change at startup.
 - **Displays:** the same wallpaper on all displays, or a different one per display.
+- **Spaces:** a different wallpaper for each Space, or for groups of Spaces (e.g. Desktops 1–4 share one).
 
 ## Installing
 
@@ -70,7 +71,7 @@ ditto "dist/Wallpaper Manager.app" "/Applications/Wallpaper Manager.app"
    rm -rf ~/Pictures/Wallpaper\ Manager
    ```
 
-   If you chose a different download folder in **Settings → Wallhaven**, delete that folder instead.
+   If you chose a different download folder in **Settings → Rotation**, delete that folder instead.
 
 Your own wallpaper folders and images are never modified or deleted by the app, so nothing else needs to be removed. To remove the source code and build output too, delete the cloned `Wallpaper` folder.
 
@@ -78,15 +79,17 @@ Your own wallpaper folders and images are never modified or deleted by the app, 
 
 1. **Choose wallpapers.** The library window opens on first launch, and again whenever every image in the library has been deleted. Pick a folder (optionally with subfolders) or individual images. More sources can be added with **Add Source** at the bottom of the sidebar.
 2. **Set a mode per wallpaper.** Select a wallpaper and use the inspector on the right. The preview shows how it will look on your display. Double-click a thumbnail to set it as the wallpaper.
-3. **Automatic changes.** In **Settings → Cycling**, choose the source that changes the wallpaper: **Off**, **Local Cycling**, or **Wallhaven**. Only one runs at a time; each keeps its own period and "change when the app starts" setting. To leave a wallpaper out of cycling, turn off **Include in cycling** in the inspector, or use a source's context menu to include or exclude all of its images.
-4. **Wallhaven.** In **Settings → Wallhaven**, enter comma-separated keywords (one is chosen at random for each change), a minimum resolution, and categories. Downloads are saved to `~/Pictures/Wallpaper Manager/Wallhaven` by default and use the default mode set there. Older downloads are deleted automatically; choose **Keep** on a download to keep it. Kept downloads are also shown by local cycling. An API key is only needed for NSFW results and is stored in the keychain.
-5. **Menu bar.** Shows the current wallpaper and has **Next Wallpaper**, **Pause/Resume**, and the time of the next change. Turn on **Settings → General → Open at login** to keep rotation running.
+3. **Automatic changes.** In **Settings → Rotation**, choose the source that changes the wallpaper: **Off**, **Local Cycling**, or **Wallhaven**. Only one runs at a time; each keeps its own period and "change when the app starts" setting. To leave a wallpaper out of cycling, turn off **Include in cycling** in the inspector, or use a source's context menu to include or exclude all of its images.
+4. **Wallhaven.** In the Wallhaven sections of **Settings → Rotation**, enter comma-separated keywords (one is chosen at random for each change), a minimum resolution, and categories. Downloads are saved to `~/Pictures/Wallpaper Manager/Wallhaven` by default and use the default mode set there. Older downloads are deleted automatically; choose **Keep** on a download to keep it. Kept downloads are also shown by local cycling. An API key is only needed for NSFW results and is stored in the keychain.
+5. **A wallpaper per Space.** In **Settings → Spaces**, turn on **Different wallpaper for each Space**. Each desktop is listed with its wallpaper. To make desktops share a wallpaper, create a group (e.g. "Work") and choose it for those desktops. Wallpapers and groups follow the Space itself, so reordering Spaces in Mission Control keeps them. **Set as Wallpaper** then offers **This Space**, **All Spaces**, or a specific Space or group. Rotation gives every Space or group its own wallpaper; Spaces you aren't on change when you switch to them.
+6. **Menu bar.** Shows the current wallpaper (and the current Space or group) and has **Next Wallpaper**, **Pause/Resume**, and the time of the next change. Turn on **Settings → General → Open at login** to keep rotation running.
 
 The app's data is in `~/Library/Application Support/WallpaperManager`.
 
 ### Known limitations
 
-- macOS only lets apps change the wallpaper of the **active Space**. The app re-applies the wallpaper when you switch Spaces, so another Space may show its old wallpaper for a moment.
+- macOS only lets apps change the wallpaper of the **active Space**. The app applies each Space's wallpaper when you switch to it, so a Space may show its previous wallpaper for a moment.
+- Telling Spaces apart uses a private macOS API (SkyLight). If a future macOS version removes it, the Spaces tab says so and all Spaces share one wallpaper.
 - The app is signed ad hoc, not with a Developer ID. The first time, open it with right-click → **Open**. Open at login works best when the app is in `/Applications`.
 
 ## Requirements
