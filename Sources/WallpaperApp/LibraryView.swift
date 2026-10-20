@@ -57,11 +57,13 @@ struct LibraryView: View {
                     }
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             if let message = controller.statusMessage {
                 StatusBanner(message: message) { controller.statusMessage = nil }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.smooth, value: controller.statusMessage)
         .frame(minWidth: 760, minHeight: 480)
     }
 
@@ -85,14 +87,19 @@ struct StatusBanner: View {
     let dismiss: () -> Void
 
     var body: some View {
-        HStack {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
-            Text(message).lineLimit(2)
-            Spacer()
-            Button("Dismiss", action: dismiss)
+        GlassEffectContainer {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
+                Text(message).lineLimit(2)
+                Button("Dismiss", action: dismiss)
+                    .buttonStyle(.glass)
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 6)
+            .padding(.vertical, 6)
+            .glassEffect(.regular, in: .capsule)
         }
-        .padding(10)
-        .background(.bar)
+        .padding(16)
     }
 }
 
@@ -137,7 +144,8 @@ struct AddSourceMenu: View {
         } label: {
             Label("Add Source", systemImage: "plus")
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.glass)
         .fixedSize()
     }
 

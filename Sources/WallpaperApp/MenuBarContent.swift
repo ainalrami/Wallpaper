@@ -13,20 +13,24 @@ struct MenuBarContent: View {
                 CurrentWallpaperRow(title: rowTitle(for: display), wallpaper: controller.currentWallpaper(on: display))
             }
 
-            HStack {
-                Button {
-                    Task { await controller.nextWallpaper() }
-                } label: {
-                    Label("Next Wallpaper", systemImage: "forward.fill")
-                }
-                .disabled(controller.library.wallpapers.isEmpty)
-                Spacer()
-                if controller.settings.rotationSource != .off {
+            GlassEffectContainer {
+                HStack(spacing: 8) {
                     Button {
-                        controller.settings.isRotationPaused.toggle()
+                        Task { await controller.nextWallpaper() }
                     } label: {
-                        Label(controller.settings.isRotationPaused ? "Resume" : "Pause",
-                              systemImage: controller.settings.isRotationPaused ? "play.fill" : "pause.fill")
+                        Label("Next Wallpaper", systemImage: "forward.fill")
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(controller.library.wallpapers.isEmpty)
+                    Spacer()
+                    if controller.settings.rotationSource != .off {
+                        Button {
+                            controller.settings.isRotationPaused.toggle()
+                        } label: {
+                            Label(controller.settings.isRotationPaused ? "Resume" : "Pause",
+                                  systemImage: controller.settings.isRotationPaused ? "play.fill" : "pause.fill")
+                        }
+                        .buttonStyle(.glass)
                     }
                 }
             }
@@ -53,18 +57,22 @@ struct MenuBarContent: View {
                     .foregroundStyle(.secondary)
                     .help("Dismiss")
                 }
+                .padding(10)
+                .glassEffect(.regular.tint(.yellow.opacity(0.12)), in: .rect(cornerRadius: 12))
             }
 
-            Divider()
-            HStack {
-                Button("Library…") { windows.showLibrary() }
-                Button("Settings…") { windows.showSettings() }
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }
+            GlassEffectContainer {
+                HStack(spacing: 8) {
+                    Button("Library…") { windows.showLibrary() }
+                    Button("Settings…") { windows.showSettings() }
+                    Spacer()
+                    Button("Quit") { NSApp.terminate(nil) }
+                }
+                .buttonStyle(.glass)
             }
         }
-        .padding(14)
-        .frame(width: 300)
+        .padding(16)
+        .frame(width: 320)
     }
 
     @ViewBuilder private var rotationStatus: some View {
@@ -113,7 +121,8 @@ struct CurrentWallpaperRow: View {
             if let wallpaper {
                 ThumbnailView(path: wallpaper.path)
                     .aspectRatio(16 / 10, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
                 Label(wallpaper.fileName, systemImage: wallpaper.mode.systemImage)
                     .font(.caption)
                     .lineLimit(1)

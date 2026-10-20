@@ -45,8 +45,10 @@ struct RotationSettingsView: View {
                         Button("Use for Automatic Changes") {
                             controller.settings.rotationSource = .local
                         }
+                        .buttonStyle(.glassProminent)
                     }
                 }
+                .buttonStyle(.glass)
             } header: {
                 SourceHeader(title: "Local Cycling", isActive: controller.settings.rotationSource == .local)
             }

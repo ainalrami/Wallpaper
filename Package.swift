@@ -1,9 +1,9 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(
     name: "WallpaperManager",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v26)],
     products: [
         .executable(name: "WallpaperManager", targets: ["WallpaperApp"]),
         .library(name: "WallpaperCore", targets: ["WallpaperCore"]),

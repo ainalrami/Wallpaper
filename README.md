@@ -91,7 +91,7 @@ The app's data is in `~/Library/Application Support/WallpaperManager`.
 
 ## Requirements
 
-- macOS 14 or later
+- macOS 26 or later (the interface uses Liquid Glass)
 - Swift 6.4 via [swiftly](https://github.com/swiftlang/swiftly), pinned in `.swift-version`. Xcode isn't required.
 
 ## Development

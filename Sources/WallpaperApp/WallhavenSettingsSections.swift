@@ -48,6 +48,7 @@ struct WallhavenSettingsSections: View {
                     Button("Fetch Now") {
                         Task { await controller.fetchFromWallhaven() }
                     }
+                    .buttonStyle(.glass)
                     .disabled(controller.isFetchingWallhaven)
                     if controller.isFetchingWallhaven {
                         ProgressView().controlSize(.small)
@@ -57,6 +58,7 @@ struct WallhavenSettingsSections: View {
                         Button("Use for Automatic Changes") {
                             controller.settings.rotationSource = .wallhaven
                         }
+                        .buttonStyle(.glassProminent)
                     }
                 }
             } header: {
@@ -89,6 +91,7 @@ struct WallhavenSettingsSections: View {
                                 controller.settings.wallhaven.downloadFolderPath = folder.path
                             }
                         }
+                        .buttonStyle(.glass)
                     }
                 }
                 Stepper(value: $controller.settings.wallhaven.retentionLimit, in: 1...1000) {

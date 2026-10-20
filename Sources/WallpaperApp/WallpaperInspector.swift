@@ -93,9 +93,11 @@ struct WallpaperInspector: View {
             } primaryAction: {
                 controller.setWallpaper(id: wallpaper.id)
             }
+            .menuStyle(.button)
+            .buttonStyle(.glassProminent)
         } else {
             Button("Set as Wallpaper") { controller.setWallpaper(id: wallpaper.id) }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
         }
     }
 
@@ -136,8 +138,10 @@ struct ModePreview: View {
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.1)))
+        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+        .padding(.vertical, 4)
         .task(id: wallpaper.path) {
             image = await ThumbnailCache.shared.image(for: wallpaper.path, maxPixelSize: 1400)
         }

@@ -36,6 +36,7 @@ struct SpacesSettingsView: View {
                     Button("New Group", systemImage: "plus") {
                         controller.createSpaceGroup(named: "Group \(controller.settings.spaces.groups.count + 1)")
                     }
+                    .buttonStyle(.glass)
                 } header: {
                     Text("Groups")
                 } footer: {

@@ -39,16 +39,28 @@ struct WallpaperCell: View {
     let isSelected: Bool
     let isCurrent: Bool
 
+    // `@State` is a macro in the macOS 27 SDK whose plugin ships only with Xcode, so State is stored directly.
+    private let _isHovered = State(initialValue: false)
+    private var isHovered: Bool {
+        get { _isHovered.wrappedValue }
+        nonmutating set { _isHovered.wrappedValue = newValue }
+    }
+
+    private let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ThumbnailView(path: wallpaper.path)
                 .aspectRatio(16 / 10, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(shape)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 3)
+                    shape.strokeBorder(isSelected ? Color.accentColor : .white.opacity(0.08), lineWidth: isSelected ? 3 : 1)
                 }
                 .overlay(alignment: .bottomTrailing) { badges }
+                .shadow(color: .black.opacity(isHovered ? 0.28 : 0.12), radius: isHovered ? 12 : 4, y: isHovered ? 6 : 2)
+                .scaleEffect(isHovered ? 1.025 : 1)
+                .animation(.smooth(duration: 0.2), value: isHovered)
+                .onHover { isHovered = $0 }
             Text(wallpaper.fileName)
                 .font(.caption)
                 .lineLimit(1)
@@ -73,9 +85,10 @@ struct WallpaperCell: View {
             Image(systemName: wallpaper.mode.systemImage).help(wallpaper.mode.title)
         }
         .font(.caption)
-        .padding(5)
-        .background(.ultraThinMaterial, in: Capsule())
-        .padding(6)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .glassEffect(.regular, in: .capsule)
+        .padding(7)
     }
 }
 

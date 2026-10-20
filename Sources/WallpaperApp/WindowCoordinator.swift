@@ -37,6 +37,7 @@ import WallpaperCore
         id: String, title: String, size: NSSize, resizable: Bool, content: Content
     ) -> NSWindow {
         let hosting = NSHostingController(rootView: content.environment(controller).environment(self))
+        hosting.sceneBridgingOptions = [.toolbars, .title]
         if !resizable {
             hosting.sizingOptions = .preferredContentSize
         }
@@ -49,6 +50,11 @@ import WallpaperCore
             contentRect: NSRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
         window.contentViewController = hosting
         window.title = title
+        if resizable {
+            // Content runs under a transparent title bar and the floating glass toolbar.
+            window.titlebarAppearsTransparent = true
+            window.toolbarStyle = .unified
+        }
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.setContentSize(size)
